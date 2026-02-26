@@ -2,8 +2,12 @@ package main
 
 import (
 	"AgnosAssignments/config"
-	dbmodel "AgnosAssignments/db"
+	"AgnosAssignments/controllers"
+	"AgnosAssignments/middlewares"
+	dbmodel "AgnosAssignments/model"
+	"AgnosAssignments/services"
 	"log"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -37,8 +41,23 @@ func main() {
 	log.Println("database connection successful")
 
 	r := gin.Default()
+	authService := services.NewAuthService(db, cfg.JWTSecret)
+	patientService := services.NewPatientService(db)
+	staffController := controllers.NewStaffController(authService)
+	patientController := controllers.NewPatientController(patientService)
 
-	if err := r.Run(":8080"); err != nil {
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+	r.POST("/staff/create", staffController.CreateStaff)
+	r.POST("/staff/login", staffController.LoginStaff)
+
+	protected := r.Group("/")
+	protected.Use(middlewares.AuthMiddleware(authService))
+	protected.POST("/patient/create", patientController.CreatePatient)
+	protected.GET("/patient/search", patientController.SearchPatient)
+
+	if err := r.Run(":8081"); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
 

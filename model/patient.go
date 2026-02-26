@@ -11,7 +11,7 @@ type Patient struct {
 	FirstNameEn  string
 	MiddleNameEn string
 	LastNameEn   string
-	DateOfBirth  string // Use time.Time for better handling
+	DateOfBirth  string
 	PatientHn    string
 	NationalID   string `gorm:"uniqueIndex:idx_hospital_national"`
 	PassportID   string `gorm:"uniqueIndex:idx_hospital_passport"`

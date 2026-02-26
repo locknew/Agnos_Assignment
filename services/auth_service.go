@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"AgnosAssignments/db"
+	db "AgnosAssignments/model"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -92,4 +92,23 @@ func (s *AuthService) Login(input LoginInput) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.jwtSecret))
+}
+
+func (s *AuthService) ParseToken(tokenString string) (*StaffClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &StaffClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(s.jwtSecret), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*StaffClaims)
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+
+	return claims, nil
 }
