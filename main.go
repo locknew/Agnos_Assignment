@@ -7,7 +7,6 @@ import (
 	dbmodel "AgnosAssignments/model"
 	"AgnosAssignments/services"
 	"log"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -40,16 +39,26 @@ func main() {
 	}
 	log.Println("database connection successful")
 
+	seedService := services.NewAuthService(db, cfg.JWTSecret)
+	if hasStaff, err := seedService.HasAnyStaff(); err == nil && !hasStaff {
+		_, err := seedService.CreateStaff(services.CreateStaffInput{
+			Username: "admin",
+			Password: "admin1234",
+			Hospital: "TheFirst",
+		})
+		if err != nil {
+			log.Printf("warning: failed to seed default staff: %v", err)
+		} else {
+			log.Println("seeded default staff — username: admin | password: admin1234 | hospital: TheFirst")
+		}
+	}
+
 	authService := services.NewAuthService(db, cfg.JWTSecret)
 	patientService := services.NewPatientService(db)
 	staffController := controllers.NewStaffController(authService)
 	patientController := controllers.NewPatientController(patientService)
 
 	r := gin.Default()
-
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
 	r.POST("/staff/login", staffController.LoginStaff)
 	r.POST("/staff/create", middlewares.OptionalAuth(authService), staffController.CreateStaff)
 
