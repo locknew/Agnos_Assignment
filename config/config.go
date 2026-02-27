@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/joho/godotenv"
 )
@@ -13,16 +14,14 @@ type Config struct {
 }
 
 func Load() Config {
-	env, err := godotenv.Read()
-	if err != nil {
-		log.Fatal(".env file is required")
-	}
+	// Load .env for local development; ignore if missing in container.
+	_ = godotenv.Load()
 
-	dbUser := env["DB_USER"]
-	dbPass := env["DB_PASSWORD"]
-	dbHost := env["DB_HOST"]
-	dbPort := env["DB_PORT"]
-	dbName := env["DB_NAME"]
+	dbUser := os.Getenv("DB_USER")
+	dbPass := os.Getenv("DB_PASSWORD")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbName := os.Getenv("DB_NAME")
 
 	if dbHost == "" {
 		dbHost = "localhost"
@@ -31,7 +30,7 @@ func Load() Config {
 		dbPort = "5432"
 	}
 	if dbUser == "" || dbName == "" {
-		log.Fatal("DB_USER and DB_NAME are required in .env")
+		log.Fatal("DB_USER and DB_NAME are required")
 	}
 
 	databaseURL := fmt.Sprintf(
@@ -39,9 +38,9 @@ func Load() Config {
 		dbUser, dbPass, dbHost, dbPort, dbName,
 	)
 
-	jwtSecret := env["JWT_SECRET"]
+	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		log.Fatal("JWT_SECRET is required in .env")
+		log.Fatal("JWT_SECRET is required")
 	}
 
 	return Config{

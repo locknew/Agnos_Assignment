@@ -1,4 +1,21 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: agnos_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "2208"
+      POSTGRES_DB: agnos_assignment
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agnos_assignment"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   nginx:
     image: nginx:1.27-alpine
     container_name: agnos_nginx
@@ -6,5 +23,25 @@ services:
       - "8080:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      - agnosassignment
+
+  agnosassignment:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_USER: postgres
+      DB_PASSWORD: "2208"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: agnos_assignment
+      JWT_SECRET: RANDOMJWT
+
+volumes:
+  postgres_data:
