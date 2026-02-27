@@ -112,3 +112,11 @@ func (s *AuthService) ParseToken(tokenString string) (*StaffClaims, error) {
 
 	return claims, nil
 }
+
+func (s *AuthService) HasAnyStaff() (bool, error) {
+	var count int64
+	if err := s.db.Model(&db.Staff{}).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

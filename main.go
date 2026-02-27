@@ -30,6 +30,7 @@ func main() {
 	if err := sqlDB.Ping(); err != nil {
 		log.Fatalf("database ping failed: %v", err)
 	}
+
 	err = db.AutoMigrate(
 		&dbmodel.Staff{},
 		&dbmodel.Patient{},
@@ -39,17 +40,18 @@ func main() {
 	}
 	log.Println("database connection successful")
 
-	r := gin.Default()
 	authService := services.NewAuthService(db, cfg.JWTSecret)
 	patientService := services.NewPatientService(db)
 	staffController := controllers.NewStaffController(authService)
 	patientController := controllers.NewPatientController(patientService)
 
+	r := gin.Default()
+
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
-	r.POST("/staff/create", staffController.CreateStaff)
 	r.POST("/staff/login", staffController.LoginStaff)
+	r.POST("/staff/create", middlewares.OptionalAuth(authService), staffController.CreateStaff)
 
 	protected := r.Group("/")
 	protected.Use(middlewares.AuthMiddleware(authService))
@@ -59,5 +61,4 @@ func main() {
 	if err := r.Run(":8081"); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
-
 }

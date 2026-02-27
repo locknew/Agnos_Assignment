@@ -23,6 +23,19 @@ func (ctl *StaffController) CreateStaff(c *gin.Context) {
 		return
 	}
 
+	hasStaff, err := ctl.authService.HasAnyStaff()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not check staff existence"})
+		return
+	}
+
+	if hasStaff {
+		if _, exists := c.Get("claims"); !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+			return
+		}
+	}
+
 	staff, err := ctl.authService.CreateStaff(input)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

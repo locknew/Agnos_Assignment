@@ -4,7 +4,7 @@ import "gorm.io/gorm"
 
 type Patient struct {
 	gorm.Model
-	Hospital     string `gorm:"index"`
+	Hospital     string `gorm:"index;uniqueIndex:idx_hospital_national_id;uniqueIndex:idx_hospital_passport_id"`
 	FirstNameTh  string
 	MiddleNameTh string
 	LastNameTh   string
@@ -13,8 +13,8 @@ type Patient struct {
 	LastNameEn   string
 	DateOfBirth  string
 	PatientHn    string
-	NationalID   string `gorm:"uniqueIndex:idx_hospital_national"`
-	PassportID   string `gorm:"uniqueIndex:idx_hospital_passport"`
+	NationalID   string `gorm:"uniqueIndex:idx_hospital_national_id"`
+	PassportID   string `gorm:"uniqueIndex:idx_hospital_passport_id"`
 	PhoneNumber  string
 	Email        string
 	Gender       string
