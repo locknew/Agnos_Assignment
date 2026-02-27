@@ -31,7 +31,6 @@ func main() {
 		log.Fatalf("database ping failed: %v", err)
 	}
 	err = db.AutoMigrate(
-		&dbmodel.Hospital{},
 		&dbmodel.Staff{},
 		&dbmodel.Patient{},
 	)
