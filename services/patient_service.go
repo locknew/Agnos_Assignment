@@ -18,16 +18,16 @@ type CreatePatientInput struct {
 	FirstNameTh  string `json:"first_name_th"`
 	MiddleNameTh string `json:"middle_name_th"`
 	LastNameTh   string `json:"last_name_th"`
-	FirstNameEn  string `json:"first_name_en"`
+	FirstNameEn  string `json:"first_name_en"  binding:"required"`
 	MiddleNameEn string `json:"middle_name_en"`
-	LastNameEn   string `json:"last_name_en"`
-	DateOfBirth  string `json:"date_of_birth"`
+	LastNameEn   string `json:"last_name_en"   binding:"required"`
+	DateOfBirth  string `json:"date_of_birth"  binding:"required"`
 	PatientHn    string `json:"patient_hn"`
-	NationalID   string `json:"national_id"`
-	PassportID   string `json:"passport_id"`
+	NationalID   string `json:"national_id"    binding:"required"`
+	PassportID   string `json:"passport_id"    binding:"required"`
 	PhoneNumber  string `json:"phone_number"`
 	Email        string `json:"email"`
-	Gender       string `json:"gender"`
+	Gender       string `json:"gender"         binding:"required"`
 }
 
 type SearchPatientInput struct {
@@ -41,6 +41,20 @@ func NewPatientService(database *gorm.DB) *PatientService {
 }
 
 func (s *PatientService) CreatePatient(input CreatePatientInput) (*db.Patient, error) {
+	// Guard against blank values that pass binding but are whitespace-only
+	if strings.TrimSpace(input.FirstNameEn) == "" || strings.TrimSpace(input.LastNameEn) == "" {
+		return nil, errors.New("first_name_en and last_name_en are required")
+	}
+	if strings.TrimSpace(input.DateOfBirth) == "" {
+		return nil, errors.New("date_of_birth is required")
+	}
+	if strings.TrimSpace(input.Gender) == "" {
+		return nil, errors.New("gender is required")
+	}
+	if strings.TrimSpace(input.NationalID) == "" || strings.TrimSpace(input.PassportID) == "" {
+		return nil, errors.New("both national_id and passport_id are required")
+	}
+
 	patient := db.Patient{
 		Hospital:     strings.TrimSpace(input.Hospital),
 		FirstNameTh:  strings.TrimSpace(input.FirstNameTh),

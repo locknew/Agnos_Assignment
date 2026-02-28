@@ -87,6 +87,14 @@ func setupSearchRouter(authService *services.AuthService, patientService *servic
 	return r
 }
 
+func setupPatientCreateRouter(authService *services.AuthService, patientService *services.PatientService) *gin.Engine {
+	r := gin.New()
+	protected := r.Group("/")
+	protected.Use(middlewares.AuthMiddleware(authService))
+	protected.POST("/patient/create", controllers.NewPatientController(patientService).CreatePatient)
+	return r
+}
+
 func getToken(t *testing.T, r *gin.Engine, username, password, hospital string) string {
 	t.Helper()
 	b, _ := json.Marshal(map[string]string{
@@ -288,12 +296,120 @@ func TestCreateStaff(t *testing.T) {
 	}
 }
 
+// ── /patient/create ───────────────────────────────────────────────────────────
+
+func TestCreatePatient(t *testing.T) {
+	db := setupTestDB(t)
+	cleanupStaff(db, defaultUsername, "hospital_a")
+
+	authService := services.NewAuthService(db, jwtSecret)
+	authService.CreateStaff(services.CreateStaffInput{
+		Username: defaultUsername, Password: defaultPassword, Hospital: "hospital_a",
+	})
+	defer cleanupStaff(db, defaultUsername, "hospital_a")
+
+	token := getToken(t, setupLoginRouter(authService), defaultUsername, defaultPassword, "hospital_a")
+	patientService := services.NewPatientService(db)
+	r := setupPatientCreateRouter(authService, patientService)
+
+	tests := []struct {
+		name       string
+		body       map[string]string
+		token      string
+		wantStatus int
+		cleanup    func()
+	}{
+		{
+			name: "success - all required fields",
+			body: map[string]string{
+				"first_name_en": "John", "last_name_en": "Doe",
+				"date_of_birth": "1990-05-15", "gender": "male",
+				"national_id": "1111111111111", "passport_id": "PP111111",
+			},
+			token:      token,
+			wantStatus: http.StatusCreated,
+			cleanup:    func() { cleanupPatient(db, "1111111111111", "PP111111") },
+		},
+		{
+			name: "fail - missing first_name_en",
+			body: map[string]string{
+				"last_name_en": "Doe", "date_of_birth": "1990-05-15",
+				"gender": "male", "national_id": "2222222222222", "passport_id": "PP222222",
+			},
+			token:      token,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "fail - missing last_name_en",
+			body: map[string]string{
+				"first_name_en": "John", "date_of_birth": "1990-05-15",
+				"gender": "male", "national_id": "3333333333333", "passport_id": "PP333333",
+			},
+			token:      token,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "fail - missing date_of_birth",
+			body: map[string]string{
+				"first_name_en": "John", "last_name_en": "Doe",
+				"gender": "male", "national_id": "4444444444444", "passport_id": "PP444444",
+			},
+			token:      token,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "fail - missing gender",
+			body: map[string]string{
+				"first_name_en": "John", "last_name_en": "Doe",
+				"date_of_birth": "1990-05-15", "national_id": "5555555555555", "passport_id": "PP555555",
+			},
+			token:      token,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "fail - missing national_id",
+			body: map[string]string{
+				"first_name_en": "John", "last_name_en": "Doe",
+				"date_of_birth": "1990-05-15", "gender": "male", "passport_id": "PP666666",
+			},
+			token:      token,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "fail - missing passport_id",
+			body: map[string]string{
+				"first_name_en": "John", "last_name_en": "Doe",
+				"date_of_birth": "1990-05-15", "gender": "male", "national_id": "7777777777777",
+			},
+			token:      token,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "fail - no token",
+			body:       map[string]string{},
+			token:      "",
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.cleanup != nil {
+				defer tc.cleanup()
+			}
+			w := post(r, "/patient/create", tc.body, tc.token)
+			if w.Code != tc.wantStatus {
+				t.Errorf("expected status %d, got %d — body: %s", tc.wantStatus, w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
 // ── /patient/search ───────────────────────────────────────────────────────────
 
 func TestSearchPatient(t *testing.T) {
 	db := setupTestDB(t)
 
-	// Seed staff for hospital_a (same hospital as patient)
 	cleanupStaff(db, defaultUsername, "hospital_a")
 	cleanupStaff(db, "staff_b", "hospital_b")
 
@@ -307,21 +423,20 @@ func TestSearchPatient(t *testing.T) {
 	defer cleanupStaff(db, defaultUsername, "hospital_a")
 	defer cleanupStaff(db, "staff_b", "hospital_b")
 
-	// Seed a patient belonging to hospital_a
 	cleanupPatient(db, "1234567890123", "PP123456")
 	patientService := services.NewPatientService(db)
 	patientService.CreatePatient(services.CreatePatientInput{
 		Hospital:    "hospital_a",
 		FirstNameEn: "John",
 		LastNameEn:  "Doe",
+		DateOfBirth: "1990-05-15",
+		Gender:      "male",
 		NationalID:  "1234567890123",
 		PassportID:  "PP123456",
 	})
 	defer cleanupPatient(db, "1234567890123", "PP123456")
 
-	// Token for hospital_a staff (same hospital as patient)
 	tokenA := getToken(t, setupLoginRouter(authService), defaultUsername, defaultPassword, "hospital_a")
-	// Token for hospital_b staff (different hospital from patient)
 	tokenB := getToken(t, setupLoginRouter(authService), "staff_b", "password123", "hospital_b")
 
 	r := setupSearchRouter(authService, patientService)
@@ -331,7 +446,7 @@ func TestSearchPatient(t *testing.T) {
 		query       string
 		token       string
 		wantStatus  int
-		wantResults int // expected number of patients in data array (-1 to skip check)
+		wantResults int
 	}{
 		{
 			name:        "success - search by national_id same hospital",

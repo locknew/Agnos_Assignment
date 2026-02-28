@@ -14,7 +14,6 @@ type Config struct {
 }
 
 func Load() Config {
-	// Load .env for local development; ignore if missing in container.
 	_ = godotenv.Load()
 
 	dbUser := os.Getenv("DB_USER")
